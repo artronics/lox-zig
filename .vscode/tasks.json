@@ -12,9 +12,9 @@
             }
         },
         {
-            "label": "run",
+            "label": "run file",
             "type": "shell",
-            "command": "zig build run",
+            "command": "zig build run -- ./data/program.lox",
             "problemMatcher": [],
             "group": {
                 "kind": "build",
@@ -25,6 +25,16 @@
             "label": "run main tests",
             "type": "shell",
             "command": "zig test ${workspaceFolder}/src/main.zig",
+            "problemMatcher": [],
+            "group": {
+                "kind": "test",
+                "isDefault": true
+            }
+        },
+        {
+            "label": "run scanner tests",
+            "type": "shell",
+            "command": "zig test ${workspaceFolder}/src/scanner.zig",
             "problemMatcher": [],
             "group": {
                 "kind": "test",

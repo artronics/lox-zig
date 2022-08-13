@@ -1,24 +1,63 @@
 const std = @import("std");
+const warn = std.log.warn;
 
 pub fn main() !void {
-    // Prints to stderr (it's a shortcut based on `std.io.getStdErr()`)
-    std.debug.print("All your {s} are belong to us.\n", .{"codebase"});
+    var gpa = std.heap.GeneralPurposeAllocator(.{}){};
+    const allocator = gpa.allocator();
+    defer {
+        _ = gpa.deinit();
+    }
 
-    // stdout is for the actual output of your application, for example if you
-    // are implementing gzip, then only the compressed bytes should be sent to
-    // stdout, not any debugging messages.
-    const stdout_file = std.io.getStdOut().writer();
-    var bw = std.io.bufferedWriter(stdout_file);
-    const stdout = bw.writer();
-
-    try stdout.print("Run `zig build test` to run the tests.\n", .{});
-
-    try bw.flush(); // don't forget to flush!
+    var a = try std.process.argsAlloc(allocator);
+    defer allocator.free(a);
+    if (a.len > 1) {
+        try runFile(allocator, a[1]);
+    }
 }
 
-test "simple test" {
-    var list = std.ArrayList(i32).init(std.testing.allocator);
-    defer list.deinit(); // try commenting this out and see if zig detects the memory leak!
-    try list.append(42);
-    try std.testing.expectEqual(@as(i32, 42), list.pop());
+fn runFile(allocator: std.mem.Allocator, path: []const u8) !void {
+    var pathBuf: [std.fs.MAX_PATH_BYTES]u8 = undefined;
+    var file: std.fs.File = undefined;
+
+    if (std.fs.path.isAbsolute(path)) {
+        file = try std.fs.openFileAbsolute(path, .{});
+    } else {
+        const absPath = try std.fs.cwd().realpath(path, pathBuf[0..]);
+        file = try std.fs.openFileAbsolute(absPath, .{});
+    }
+
+    const content = try file.readToEndAlloc(allocator, try file.getEndPos());
+    defer {
+        file.close();
+        allocator.free(content);
+    }
+
+    try run(content);
+}
+
+fn run(content: []const u8) !void {
+    warn("content {s}", .{content});
+}
+
+const testing = std.testing;
+
+test "run file" {
+    var tmp_dir = testing.tmpDir(.{});
+    defer tmp_dir.cleanup();
+
+    var buffer: [std.fs.MAX_PATH_BYTES]u8 = undefined;
+    const path = try createTestFile(tmp_dir, "test.lox", "a program", buffer[0..]);
+    warn("test file {s}", .{path});
+
+    try runFile(testing.allocator, path);
+}
+
+fn createTestFile(dir: testing.TmpDir, name: []const u8, content: []const u8, outPath: []u8) ![]u8 {
+    var f = try dir.dir.createFile(name, .{ .read = true });
+    defer f.close();
+
+    const buf: []const u8 = content;
+    try f.writeAll(buf);
+
+    return try dir.dir.realpath(name, outPath);
 }
