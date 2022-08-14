@@ -1,6 +1,8 @@
 const std = @import("std");
 const warn = std.log.warn;
 
+var hadError = false;
+
 pub fn main() !void {
     var gpa = std.heap.GeneralPurposeAllocator(.{}){};
     const allocator = gpa.allocator();
@@ -36,7 +38,16 @@ fn runFile(allocator: std.mem.Allocator, path: []const u8) !void {
 }
 
 fn run(content: []const u8) !void {
-    warn("content {s}", .{content});
+    const scanner = Scanner.init(content);
+    const tokens = try scanner.scanTokens();
+    var it = tokens.first;
+    while (it) |token| : (it = token.next) {
+        warn("token {s}", .{token.data.value});
+    }
+}
+
+fn reportError(line: usize, message: []const u8) void {
+    warn("[line {d}] Error: {s}", .{ line, message });
 }
 
 const testing = std.testing;
@@ -50,6 +61,10 @@ test "run file" {
     warn("test file {s}", .{path});
 
     try runFile(testing.allocator, path);
+}
+
+test "error" {
+    reportError(4, "bad token");
 }
 
 fn createTestFile(dir: testing.TmpDir, name: []const u8, content: []const u8, outPath: []u8) ![]u8 {
