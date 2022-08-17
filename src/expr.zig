@@ -1,6 +1,7 @@
 const std = @import("std");
-const warn = std.log.warn;
+const Allocator = std.mem.Allocator;
 const scanner = @import("scanner.zig");
+const warn = std.log.warn;
 
 pub const BinaryOperator = enum {
     equality,
@@ -15,12 +16,29 @@ pub const Expr = union(enum) {
     value: f64,
     eql: *BinaryExpr,
     not_eql: *BinaryExpr,
+
+    pub fn deinit(self: Expr, a: Allocator) void {
+        switch (self) {
+            .value => {},
+            .eql, .not_eql => |v| {
+                v.*.left.deinit(a);
+                v.*.right.deinit(a);
+                a.destroy(v);
+            },
+        }
+    }
 };
 
 const testing = std.testing;
 const expect = std.testing.expect;
 test "exp test" {
-    try expect(true);
+    var a = testing.allocator;
+    const eql = try a.create(BinaryExpr);
+    eql.* = BinaryExpr{.left = Expr{.value = 23}, .right = Expr{.value =23}};
+    const e = Expr{ .eql = eql };
+    _ = e;
+
+    e.deinit(a);
 }
 
 pub const Expr2 = union(enum) {

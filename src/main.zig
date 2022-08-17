@@ -1,7 +1,8 @@
 const std = @import("std");
 const Allocator = std.mem.Allocator;
-const scanner = @import("scanner.zig"); 
-const parser = @import("parser.zig"); 
+const scanner = @import("scanner.zig");
+const parser = @import("parser.zig");
+const expr = @import("expr.zig");
 const warn = std.log.warn;
 
 var hadError = false;
@@ -43,13 +44,15 @@ fn runFile(allocator: Allocator, path: []const u8) !void {
 fn run(allocator: Allocator, content: []const u8) !void {
     var sc = try scanner.Scanner.init(allocator, content);
     defer sc.deinit();
-    var tokens = try sc.scanTokens();
-    for (tokens.items) |token| {
+    const tokens = try sc.scanTokens();
+    for (tokens) |token| {
         warn("token {s}", .{@tagName(token.tokenType)});
     }
-    var p = parser.Parser.init(allocator, &tokens);
+    defer allocator.free(tokens);
+    var p = parser.Parser.init(allocator, tokens);
     defer p.deinit();
-    _ = try p.parse();
+    const e = try p.parse();
+    defer e.deinit(allocator);
 }
 
 fn reportError(line: usize, message: []const u8) void {

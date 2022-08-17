@@ -126,7 +126,7 @@ pub const Scanner = struct {
         self.keywords.deinit();
     }
 
-    pub fn scanTokens(self: *Self) !ArrayList(Token) {
+    pub fn scanTokens(self: *Self) ![]const Token {
         while (!self.isAtEnd()) {
             self.start = self.current;
             try self.scanToken();
@@ -135,7 +135,7 @@ pub const Scanner = struct {
         const srcLen = self.source.len;
         try self.tokens.append(Token.init(TokenType.token_eof, self.source[srcLen..srcLen], LiteralToken.None, self.line));
 
-        return self.tokens;
+        return self.tokens.toOwnedSlice();
     }
 
     fn scanToken(self: *Self) !void {
@@ -346,7 +346,8 @@ test "init" {
         defer scanner.deinit();
 
         const actTokens = try scanner.scanTokens();
-        for (actTokens.items) |token, index| {
+        defer testing.allocator.free(actTokens);
+        for (actTokens) |token, index| {
             try expect(tokenEql(token, tokens[index]));
         }
     }
