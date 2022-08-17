@@ -1,4 +1,7 @@
 const std = @import("std");
+const Allocator = std.mem.Allocator;
+const scanner = @import("scanner.zig"); 
+const parser = @import("parser.zig"); 
 const warn = std.log.warn;
 
 var hadError = false;
@@ -17,7 +20,7 @@ pub fn main() !void {
     }
 }
 
-fn runFile(allocator: std.mem.Allocator, path: []const u8) !void {
+fn runFile(allocator: Allocator, path: []const u8) !void {
     var pathBuf: [std.fs.MAX_PATH_BYTES]u8 = undefined;
     var file: std.fs.File = undefined;
 
@@ -34,16 +37,19 @@ fn runFile(allocator: std.mem.Allocator, path: []const u8) !void {
         allocator.free(content);
     }
 
-    try run(content);
+    try run(allocator, content);
 }
 
-fn run(content: []const u8) !void {
-    const scanner = Scanner.init(content);
-    const tokens = try scanner.scanTokens();
-    var it = tokens.first;
-    while (it) |token| : (it = token.next) {
-        warn("token {s}", .{token.data.value});
+fn run(allocator: Allocator, content: []const u8) !void {
+    var sc = try scanner.Scanner.init(allocator, content);
+    defer sc.deinit();
+    var tokens = try sc.scanTokens();
+    for (tokens.items) |token| {
+        warn("token {s}", .{@tagName(token.tokenType)});
     }
+    var p = parser.Parser.init(allocator, &tokens);
+    defer p.deinit();
+    _ = try p.parse();
 }
 
 fn reportError(line: usize, message: []const u8) void {

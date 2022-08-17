@@ -4,7 +4,7 @@ const StringHashMap = std.StringHashMap;
 const Allocator = std.mem.Allocator;
 const warn = std.log.warn;
 
-const TokenType = enum {
+pub const TokenType = enum {
     // Single-character tokens.
     token_left_paren,
     token_right_paren,
@@ -52,14 +52,14 @@ const TokenType = enum {
     token_eof,
 };
 
-const LiteralToken = union(enum) {
+pub const LiteralToken = union(enum) {
     None,
     String: []const u8,
     Number: f64,
     Identifier: []const u8,
 };
 
-const Token = struct {
+pub const Token = struct {
     tokenType: TokenType,
     lexeme: []const u8,
     literal: LiteralToken,
@@ -97,7 +97,7 @@ const Token = struct {
     }
 };
 
-const Scanner = struct {
+pub const Scanner = struct {
     const Self = @This();
 
     allocator: Allocator,
@@ -185,6 +185,7 @@ const Scanner = struct {
             else => unreachable,
         }
     }
+
     fn string(self: *Self) !void {
         while (self.peek() != '"' and !self.isAtEnd()) {
             if (self.peek() == '\n') {
@@ -241,6 +242,7 @@ const Scanner = struct {
         if (self.source[self.current] != expected) return false;
 
         self.current += 1;
+
         return true;
     }
 
@@ -351,6 +353,6 @@ test "init" {
 }
 
 fn tokenEql(this: Token, that: Token) bool {
-    warn("\nthis lexeme: {s}, line: {d} \nthat lexeme: {s}, line: {d}", .{ this.lexeme, this.line, that.lexeme, that.line });
+    // warn("\nthis lexeme: {s}, line: {d} \nthat lexeme: {s}, line: {d}", .{ this.lexeme, this.line, that.lexeme, that.line });
     return this.eql(that);
 }

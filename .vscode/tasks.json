@@ -40,6 +40,26 @@
                 "kind": "test",
                 "isDefault": true
             }
+        },
+        {
+            "label": "run parser tests",
+            "type": "shell",
+            "command": "zig test ${workspaceFolder}/src/parser.zig",
+            "problemMatcher": [],
+            "group": {
+                "kind": "test",
+                "isDefault": true
+            }
+        },
+        {
+            "label": "run exp tests",
+            "type": "shell",
+            "command": "zig test ${workspaceFolder}/src/exp.zig",
+            "problemMatcher": [],
+            "group": {
+                "kind": "test",
+                "isDefault": true
+            }
         }
     ]
 }
