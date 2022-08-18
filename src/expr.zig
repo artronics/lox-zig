@@ -12,19 +12,55 @@ pub const BinaryExpr = struct {
     left: Expr,
 };
 
+pub const LiteralExpr = union(enum) {
+    literal_true,
+    literal_false,
+    literal_string: []const u8,
+    literal_number: f64,
+};
+
 pub const Expr = union(enum) {
-    value: f64,
-    eql: *BinaryExpr,
-    not_eql: *BinaryExpr,
+    value: f64, // TODO: for testing - delete it
+    // binary
+    equal: *BinaryExpr,
+    not_equal: *BinaryExpr,
+    greater: *BinaryExpr,
+    greater_equal: *BinaryExpr,
+    less: *BinaryExpr,
+    less_equal: *BinaryExpr,
+    add: *BinaryExpr,
+    sub: *BinaryExpr,
+    mul: *BinaryExpr,
+    div: *BinaryExpr,
+    // unary
+    not: *Expr,
+    minus: *Expr,
+    // literal
+    literal_nil,
+    literal_true,
+    literal_false,
+    literal_string: []const u8,
+    literal_number: f64,
+    // Grouping
+    grouping: *Expr,
+
 
     pub fn deinit(self: Expr, a: Allocator) void {
         switch (self) {
             .value => {},
-            .eql, .not_eql => |v| {
+            // binary
+            .equal, .not_equal, .greater, .greater_equal, .less, .less_equal, .add, .sub, .mul, .div => |v| {
                 v.*.left.deinit(a);
                 v.*.right.deinit(a);
                 a.destroy(v);
             },
+            // unary
+            .not, .minus => |v| a.destroy(v) ,
+            // literal
+            .literal_nil, .literal_false, .literal_true, .literal_number => {},
+            .literal_string => |v| a.free(v),
+            // grouping
+            .grouping => |v| a.destroy(v),
         }
     }
 };
@@ -35,7 +71,7 @@ test "exp test" {
     var a = testing.allocator;
     const eql = try a.create(BinaryExpr);
     eql.* = BinaryExpr{.left = Expr{.value = 23}, .right = Expr{.value =23}};
-    const e = Expr{ .eql = eql };
+    const e = Expr{ .equal = eql };
     _ = e;
 
     e.deinit(a);

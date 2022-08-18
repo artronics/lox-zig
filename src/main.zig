@@ -5,7 +5,7 @@ const parser = @import("parser.zig");
 const expr = @import("expr.zig");
 const warn = std.log.warn;
 
-var hadError = false;
+pub var hadError = false;
 
 pub fn main() !void {
     var gpa = std.heap.GeneralPurposeAllocator(.{}){};
@@ -18,6 +18,12 @@ pub fn main() !void {
     defer allocator.free(a);
     if (a.len > 1) {
         try runFile(allocator, a[1]);
+    }
+
+    if (hadError) {
+        warn("ERROR", .{});
+    } else {
+        warn("SUCCESS", .{});
     }
 }
 

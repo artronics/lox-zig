@@ -75,6 +75,12 @@ pub const Token = struct {
             .line = line,
         };
     }
+    pub fn literalNumber(self: *Self) f64 {
+        return self.literal.Number;
+    }
+    pub fn literalString(self: *Self) []const u8 {
+        return self.literal.String;
+    }
 
     pub fn eql(self: Self, other: Token) bool {
         // FIXME: extracting literal value for f64 .Number case doesn't work
