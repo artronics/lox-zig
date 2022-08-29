@@ -11,6 +11,10 @@ const LiteralToken = scanner.LiteralToken;
 const expr = @import("expr.zig");
 const Expr = expr.Expr;
 
+pub const ParserError = error {
+
+} || Allocator.Error;
+
 pub const Parser = struct {
     const Self = @This();
     allocator: Allocator,
@@ -39,11 +43,11 @@ pub const Parser = struct {
     // primary -> NUMBER | STRING | "true" | "false" | "nil" ;
     //          | "(" expression ")" ;
 
-    pub fn parse(self: *Self) !Expr {
+    pub fn parse(self: *Self) ParserError!Expr {
         return try self.expression();
     }
 
-    fn expression(self: *Self) !Expr {
+    fn expression(self: *Self) ParserError!Expr {
         return try self.equality();
     }
 
@@ -71,7 +75,7 @@ pub const Parser = struct {
     }
 
     // comparison -> term ( (">" | ">=" | "<" | "<=") term)* ;
-    fn comparison(self: *Self) !Expr {
+    fn comparison(self: *Self) ParserError!Expr {
         var exp = try self.term();
         while (self.match(&.{
             TokenType.token_greater,
@@ -98,7 +102,7 @@ pub const Parser = struct {
     }
 
     // term -> factor ( ("+" | "-") factor)* ;
-    fn term(self: *Self) !Expr {
+    fn term(self: *Self) ParserError!Expr {
         var exp = try self.factor();
 
         while (self.match(&.{
@@ -121,7 +125,7 @@ pub const Parser = struct {
     }
 
     // factor -> unary ( ("*" | "/") unary)* ;
-    fn factor(self: *Self) !Expr {
+    fn factor(self: *Self) ParserError!Expr {
         var exp = try self.unary();
 
         while (self.match(&.{
@@ -145,7 +149,7 @@ pub const Parser = struct {
 
     // unary -> ("!" | "-") unary
     //          | primary ;
-    fn unary(self: *Self) !Expr {
+    fn unary(self: *Self) ParserError!Expr {
         if (self.match(&.{ TokenType.token_bang, TokenType.token_minus })) {
             const ue = try self.allocator.create(expr.Expr);
             // ue.* = try self.unary();
@@ -161,7 +165,7 @@ pub const Parser = struct {
 
     // primary -> NUMBER | STRING | "true" | "false" | "nil" ;
     //          | "(" expression ")" ;
-    fn primary(self: *Self) !Expr {
+    fn primary(self: *Self) ParserError!Expr {
         if (self.match(&.{
             TokenType.token_number,
             TokenType.token_string,
@@ -180,9 +184,9 @@ pub const Parser = struct {
         }
         if (self.match(&.{TokenType.token_left_paren})) {
             const exp = try self.allocator.create(Expr);
-            // exp.* = try self.expression(); // FIXME: error issue (recursive)
-            exp.* = Expr{.value = 56};
+            exp.* = try self.expression();
             _ = self.consume(TokenType.token_right_paren); // TODO: error handling
+
             return Expr{ .grouping = exp };
         }
 
@@ -236,8 +240,10 @@ test "parser test" {
     var allocator = testing.allocator;
 
     const tokens = [_]Token{
+        Token.init(TokenType.token_identifier, "foo", LiteralToken{.Identifier = "foo"}, 1),
         Token.init(TokenType.token_equal_equal, "==", LiteralToken.None, 1),
-        Token.init(TokenType.token_bang_equal, "!=", LiteralToken.None, 1),
+        Token.init(TokenType.token_identifier, "bar", LiteralToken{.Identifier = "bar"}, 1),
+        // Token.init(TokenType.token_bang_equal, "!=", LiteralToken.None, 1),
         // Token.init(TokenType.token_left_paren, "(", LiteralToken.None, 1),
         // Token.init(TokenType.token_right_paren, ")", LiteralToken.None, 1),
         Token.init(TokenType.token_eof, "", LiteralToken.None, 1),
