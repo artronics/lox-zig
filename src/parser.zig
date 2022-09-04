@@ -59,8 +59,8 @@ pub const Parser = struct {
             TokenType.token_equal_equal,
             TokenType.token_bang_equal,
         })) {
-            const be = try self.allocator.create(expr.BinaryExpr);
-            be.* = expr.BinaryExpr{
+            const be = try self.allocator.create(expr.BinExpr);
+            be.* = expr.BinExpr{
                 .left = exp,
                 .right = try self.comparison(),
             };
@@ -83,8 +83,8 @@ pub const Parser = struct {
             TokenType.token_less,
             TokenType.token_less_equal,
         })) {
-            const be = try self.allocator.create(expr.BinaryExpr);
-            be.* = expr.BinaryExpr{
+            const be = try self.allocator.create(expr.BinExpr);
+            be.* = expr.BinExpr{
                 .left = exp,
                 .right = try self.term(),
             };
@@ -109,8 +109,8 @@ pub const Parser = struct {
             TokenType.token_plus,
             TokenType.token_minus,
         })) {
-            const be = try self.allocator.create(expr.BinaryExpr);
-            be.* = expr.BinaryExpr{
+            const be = try self.allocator.create(expr.BinExpr);
+            be.* = expr.BinExpr{
                 .left = exp,
                 .right = try self.factor(),
             };
@@ -132,8 +132,8 @@ pub const Parser = struct {
             TokenType.token_star,
             TokenType.token_slash,
         })) {
-            const be = try self.allocator.create(expr.BinaryExpr);
-            be.* = expr.BinaryExpr{
+            const be = try self.allocator.create(expr.BinExpr);
+            be.* = expr.BinExpr{
                 .left = exp,
                 .right = try self.unary(),
             };
