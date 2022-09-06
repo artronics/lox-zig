@@ -5,27 +5,27 @@ const warn = std.log.warn;
 
 const StringBuilderError = error{} || std.fmt.BufPrintError || Allocator.Error;
 
-const StringBuilder = struct {
+pub const StringBuilder = struct {
     allocator: Allocator,
     buffer: []u8,
     index: usize,
 
     const Self = @This();
 
-    fn init(comptime capacity: usize, allocator: Allocator) !Self {
+    pub fn init(comptime capacity: usize, allocator: Allocator) !Self {
         const buffer = try allocator.alloc(u8, capacity);
         return Self{ .allocator = allocator, .buffer = buffer, .index = 0 };
     }
 
-    fn deinit(self: Self) void {
+    pub fn deinit(self: Self) void {
         self.allocator.free(self.buffer);
     }
 
-    fn string(self: Self) []const u8 {
+    pub fn string(self: Self) []const u8 {
         return self.buffer[0..self.index];
     }
 
-    fn append(self: *Self, str: []const u8) StringBuilderError!void {
+    pub fn append(self: *Self, str: []const u8) StringBuilderError!void {
         if (self.buffer.len - self.index < str.len) {
             self.buffer = try self.allocator.realloc(self.buffer, 2 * self.buffer.len);
         }
@@ -59,6 +59,10 @@ pub const BinExpr = struct {
     r: *Expr,
 
     const Self = @This();
+    fn eql(self: *const Self, other: *const BinExpr) bool {
+        return self.l.eql(other.l) and self.r.eql(other.r);
+    }
+
     fn print(self: *const Self, op: []const u8, sb: *StringBuilder) StringBuilderError!void {
         var buf: [10]u8 = undefined;
         const op_str = try std.fmt.bufPrint(&buf, "({s} ", .{op});
@@ -117,7 +121,37 @@ pub const Expr = union(enum) {
         }
     }
 
-    fn print(self: *const Self, sb: *StringBuilder) StringBuilderError!void {
+    pub fn eql(self: *const Self, other: *const Expr) bool {
+        if (@enumToInt(self.*) != @enumToInt(other.*)) {
+            return false;
+        }
+        // We established that tags are equal. Now we just need to check values if any.
+        switch (self.*) {
+            .equal, .not_equal, .greater, .greater_equal, .less, .less_equal, .add, .sub, .mul, .div => |v| {
+                return v.eql(@ptrCast(*const BinExpr, other));
+            },
+            .not => |v| {
+                return v.eql(other.not);
+            },
+            .minus => |v| {
+                return v.eql(other.minus);
+            },
+            .grouping => |v| {
+                return v.eql(other);
+            },
+            .literal_nil, .literal_false, .literal_true => {
+                return true;
+            },
+            .literal_number => |v| {
+                return v == other.literal_number;
+            },
+            .literal_string => |v| {
+                return std.mem.eql(u8, v, other.literal_string);
+            },
+        }
+        return true;
+    }
+    pub fn print(self: *const Self, sb: *StringBuilder) StringBuilderError!void {
         switch (self.*) {
             .grouping => |v| {
                 try sb.append("(");
@@ -185,10 +219,24 @@ pub const Expr = union(enum) {
             },
         }
     }
+
+    pub fn allocPrint(self: *const Self, allocator: Allocator) ![]const u8 {
+        var sb = try StringBuilder.init(2000, allocator);
+        defer sb.deinit();
+
+        try self.print(&sb);
+        const s = sb.string();
+
+        const dst = try allocator.alloc(u8, s.len);
+        std.mem.copy(u8, dst, s);
+
+        return dst;
+    }
 };
 
 const testing = std.testing;
 const expect = std.testing.expect;
+const alloc = std.testing.allocator;
 
 test "expr" {
     const expr = try makeTestExpr(alloc);
@@ -198,7 +246,17 @@ test "expr" {
     try expect(expr.*.add.l.*.literal_number == 5.2);
 }
 
-const alloc = std.testing.allocator;
+test "Expr equality" {
+    const a = try makeTestExpr(alloc);
+    defer alloc.destroy(a);
+    defer a.deinit(alloc);
+
+    const b = try makeTestExpr(alloc);
+    defer alloc.destroy(b);
+    defer b.deinit(alloc);
+
+    try expect(a.eql(b));
+}
 
 test "Expr print" {
     var sb = try StringBuilder.init(100, alloc);
