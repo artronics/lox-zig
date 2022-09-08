@@ -14,24 +14,36 @@ const BinExpr = expr.BinExpr;
 
 pub const ParserError = error{
     parse_error,
+    unknown_state,
 } || Allocator.Error;
+
+pub const TokenError = struct {
+    token: Token,
+    message: []const u8,
+
+    fn init(token: Token, message: []const u8) TokenError {
+        return TokenError{ .token = token, .message = message };
+    }
+};
 
 pub const Parser = struct {
     const Self = @This();
     allocator: Allocator,
     tokens: []const Token,
     current: usize = 0,
+    parse_errors: ArrayList(TokenError),
 
     pub fn init(allocator: Allocator, tokens: []const Token) Self {
         return Self{
             .allocator = allocator,
             .tokens = tokens,
             .current = 0,
+            .parse_errors = ArrayList(TokenError).init(allocator),
         };
     }
 
     pub fn deinit(self: *Self) void {
-        _ = self;
+        self.parse_errors.deinit();
     }
 
     // expression -> equality ;
@@ -49,7 +61,7 @@ pub const Parser = struct {
     }
 
     fn expression(self: *Self) ParserError!Expr {
-        return try self.equality();
+        return self.equality();
     }
 
     // equality -> comparison ( ("==" | "!=") comparison )* ;
@@ -61,9 +73,13 @@ pub const Parser = struct {
             TokenType.token_bang_equal,
         })) {
             const l = try self.allocator.create(Expr);
+            errdefer self.allocator.destroy(l);
             l.* = exp;
+
             const op = self.previous().tokenType;
+
             const r = try self.allocator.create(Expr);
+            errdefer self.allocator.destroy(r);
             r.* = try self.comparison();
 
             const be = expr.BinExpr{ .l = l, .r = r };
@@ -89,9 +105,13 @@ pub const Parser = struct {
             TokenType.token_less_equal,
         })) {
             const l = try self.allocator.create(Expr);
+            errdefer self.allocator.destroy(l);
             l.* = exp;
+
             const op = self.previous().tokenType;
+
             const r = try self.allocator.create(Expr);
+            errdefer self.allocator.destroy(r);
             r.* = try self.term();
 
             const be = expr.BinExpr{ .l = l, .r = r };
@@ -117,9 +137,13 @@ pub const Parser = struct {
             TokenType.token_minus,
         })) {
             const l = try self.allocator.create(Expr);
+            errdefer self.allocator.destroy(l);
             l.* = exp;
+
             const op = self.previous().tokenType;
+
             const r = try self.allocator.create(Expr);
+            errdefer self.allocator.destroy(r);
             r.* = try self.factor();
 
             warn("term l: {s}", .{@tagName(self.previous().tokenType)});
@@ -145,9 +169,13 @@ pub const Parser = struct {
             TokenType.token_slash,
         })) {
             const l = try self.allocator.create(Expr);
+            errdefer self.allocator.destroy(l);
             l.* = exp;
+
             const op = self.previous().tokenType;
+
             const r = try self.allocator.create(Expr);
+            errdefer self.allocator.destroy(r);
             r.* = try self.unary();
 
             const be = expr.BinExpr{ .l = l, .r = r };
@@ -166,7 +194,9 @@ pub const Parser = struct {
     fn unary(self: *Self) ParserError!Expr {
         if (self.match(&.{ TokenType.token_bang, TokenType.token_minus })) {
             const op = self.previous().tokenType;
+
             const ue = try self.allocator.create(expr.Expr);
+            errdefer self.allocator.destroy(ue);
             ue.* = try self.unary();
 
             return if (op == TokenType.token_bang)
@@ -188,7 +218,7 @@ pub const Parser = struct {
             TokenType.token_false,
             TokenType.token_nil,
         })) {
-            warn("primary cur: {s}", .{@tagName(self.peek().tokenType)});
+            // warn("primary cur: {s}", .{@tagName(self.peek().tokenType)});
             warn("primary pre: {s}", .{@tagName(self.previous().tokenType)});
             return switch (self.previous().tokenType) {
                 TokenType.token_number => Expr{ .literal_number = self.previous().literalNumber() }, // TODO: copy number
@@ -201,13 +231,15 @@ pub const Parser = struct {
         }
         if (self.match(&.{TokenType.token_left_paren})) {
             const exp = try self.allocator.create(Expr);
+            errdefer self.allocator.destroy(exp);
+            warn("lef paren matched", .{});
             exp.* = try self.expression();
-            _ = self.consume(TokenType.token_right_paren); // TODO: error handling
+            _ = try self.consume(TokenType.token_right_paren, "Expect ')' after expression."); // TODO: error handling
 
             return Expr{ .grouping = exp };
         }
 
-        return ParserError.parse_error;
+        return ParserError.unknown_state;
     }
 
     fn advance(self: *Self) Token {
@@ -243,38 +275,62 @@ pub const Parser = struct {
         return self.tokens[self.current - 1];
     }
 
-    fn consume(self: *Self, tokenType: TokenType) ?Token {
+    fn consume(self: *Self, tokenType: TokenType, msg: []const u8) ParserError!Token {
         if (self.check(tokenType)) return self.advance();
-        return null;
+        // error
+        try self.parse_errors.append(TokenError.init(self.peek(), msg));
+        return ParserError.parse_error;
     }
 };
 
 const testing = std.testing;
 const expect = std.testing.expect;
+const expectError = std.testing.expectError;
 
+const test_alloc = testing.allocator;
 test "parser test" {
-    var allocator = testing.allocator;
-
     const tokens = makeTestTokens();
-    var p = Parser.init(allocator, &tokens);
+    var p = Parser.init(test_alloc, &tokens);
     defer p.deinit();
     const act_expr = try p.parse();
-    defer act_expr.deinit(allocator);
+    defer act_expr.deinit(test_alloc);
 
-    const exp_expr = try makeExpectedExpr(allocator);
-    defer exp_expr.deinit(allocator);
+    const exp_expr = try makeExpectedExpr(test_alloc);
+    defer exp_expr.deinit(test_alloc);
 
     // Print act and exp in case of error
-    const exp_s = try exp_expr.allocPrint(allocator);
-    defer allocator.free(exp_s);
-    const act_s = try act_expr.allocPrint(allocator);
-    defer allocator.free(act_s);
+    const exp_s = try exp_expr.allocPrint(test_alloc);
+    defer test_alloc.free(exp_s);
+    const act_s = try act_expr.allocPrint(test_alloc);
+    defer test_alloc.free(act_s);
     errdefer {
         warn("expected| {s}", .{exp_s});
         warn("actual: | {s}", .{act_s});
     }
 
     try expect(exp_expr.eql(&act_expr));
+}
+
+test "parser error" {
+    const tokens = &[_]Token{
+        Token.init(TokenType.token_true, "true", LiteralToken{ .Identifier = "true" }, 1),
+        Token.init(TokenType.token_equal_equal, "==", LiteralToken.None, 1),
+        Token.init(TokenType.token_eof, "", LiteralToken.None, 1),
+    };
+
+    var p = Parser.init(test_alloc, tokens);
+    defer p.deinit();
+    const act_result = p.parse();
+    // _= act_result;
+
+    // TODO: in case of error all allocated expr will leak. 
+    // use errdefer in the error() method to free expr so far has been created
+    // or in parse() method catch error and free expr
+    // or leave expr as it is but keep a pointer to in if parse_errors is not empty and then destroy it in the deinit() method
+
+    // try expectError(ParserError.parse_error, act_result);
+    try expectError(ParserError.unknown_state, act_result);
+    // try expect(p.parse_errors.items.len == 1);
 }
 
 fn makeTestTokens() [9]Token {

@@ -45,6 +45,9 @@ fn runFile(allocator: Allocator, path: []const u8) !void {
     }
 
     try run(allocator, content);
+    if (hadError) {
+        std.os.exit(65);
+    }
 }
 
 fn run(allocator: Allocator, content: []const u8) !void {
@@ -61,8 +64,9 @@ fn run(allocator: Allocator, content: []const u8) !void {
     defer e.deinit(allocator);
 }
 
-fn reportError(line: usize, message: []const u8) void {
-    warn("[line {d}] Error: {s}", .{ line, message });
+fn reportError(line: usize, where: []const u8, message: []const u8) void {
+    warn("[line {d}] Error: {s}: {s}", .{ line, where, message });
+    hadError = true;
 }
 
 const testing = std.testing;

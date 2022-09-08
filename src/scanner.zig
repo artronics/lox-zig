@@ -138,7 +138,7 @@ pub const Scanner = struct {
             try self.scanToken();
         }
 
-        const srcLen = self.source.len;
+        const srcLen = self.source.len; // FIXME: why not just pass "" instead of self.source[srcLen..srcLen]
         try self.tokens.append(Token.init(TokenType.token_eof, self.source[srcLen..srcLen], LiteralToken.None, self.line));
 
         return self.tokens.toOwnedSlice();
