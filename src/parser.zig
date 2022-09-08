@@ -84,8 +84,6 @@ pub const Parser = struct {
 
             const be = expr.BinExpr{ .l = l, .r = r };
 
-            warn("equality cur: {s}", .{@tagName(self.peek().tokenType)});
-            warn("equality pre: {s}", .{@tagName(self.previous().tokenType)});
             exp = if (op == TokenType.token_equal_equal)
                 Expr{ .equal = be }
             else
@@ -145,9 +143,6 @@ pub const Parser = struct {
             const r = try self.allocator.create(Expr);
             errdefer self.allocator.destroy(r);
             r.* = try self.factor();
-
-            warn("term l: {s}", .{@tagName(self.previous().tokenType)});
-            warn("term op: {s}", .{@tagName(op)});
 
             const be = expr.BinExpr{ .l = l, .r = r };
 
@@ -218,8 +213,6 @@ pub const Parser = struct {
             TokenType.token_false,
             TokenType.token_nil,
         })) {
-            // warn("primary cur: {s}", .{@tagName(self.peek().tokenType)});
-            warn("primary pre: {s}", .{@tagName(self.previous().tokenType)});
             return switch (self.previous().tokenType) {
                 TokenType.token_number => Expr{ .literal_number = self.previous().literalNumber() }, // TODO: copy number
                 TokenType.token_string => Expr{ .literal_string = self.previous().literalString() }, // TODO: copy string
@@ -232,14 +225,13 @@ pub const Parser = struct {
         if (self.match(&.{TokenType.token_left_paren})) {
             const exp = try self.allocator.create(Expr);
             errdefer self.allocator.destroy(exp);
-            warn("lef paren matched", .{});
             exp.* = try self.expression();
             _ = try self.consume(TokenType.token_right_paren, "Expect ')' after expression."); // TODO: error handling
 
             return Expr{ .grouping = exp };
         }
 
-        return ParserError.unknown_state;
+        return self.addError("Expected an expression");
     }
 
     fn advance(self: *Self) Token {
@@ -277,9 +269,30 @@ pub const Parser = struct {
 
     fn consume(self: *Self, tokenType: TokenType, msg: []const u8) ParserError!Token {
         if (self.check(tokenType)) return self.advance();
-        // error
+        return self.addError(msg);
+    }
+
+    fn addError(self: *Self, msg: []const u8) ParserError {
         try self.parse_errors.append(TokenError.init(self.peek(), msg));
         return ParserError.parse_error;
+    }
+
+    fn synchronize(self: *Self) void {
+        self.advance();
+        while (!self.isAtEnd()) {
+            if (self.previous().tokenType == TokenType.token_semicolon) {
+                return;
+            }
+
+            switch (self.peek().tokenType) {
+                TokenType.token_class, TokenType.token_for, TokenType.fun, TokenType.token_if, TokenType.token_print, TokenType.token_return, TokenType.token_var, TokenType.token_while => {
+                    return;
+                },
+                else => {
+                    self.advance();
+                },
+            }
+        }
     }
 };
 
@@ -313,7 +326,7 @@ test "parser test" {
 
 test "parser error" {
     const tokens = &[_]Token{
-        Token.init(TokenType.token_true, "true", LiteralToken{ .Identifier = "true" }, 1),
+        // Token.init(TokenType.token_true, "true", LiteralToken{ .Identifier = "true" }, 1),
         Token.init(TokenType.token_equal_equal, "==", LiteralToken.None, 1),
         Token.init(TokenType.token_eof, "", LiteralToken.None, 1),
     };
@@ -321,16 +334,15 @@ test "parser error" {
     var p = Parser.init(test_alloc, tokens);
     defer p.deinit();
     const act_result = p.parse();
-    // _= act_result;
 
-    // TODO: in case of error all allocated expr will leak. 
+    // TODO: in case of error all allocated expr will leak.
     // use errdefer in the error() method to free expr so far has been created
     // or in parse() method catch error and free expr
     // or leave expr as it is but keep a pointer to in if parse_errors is not empty and then destroy it in the deinit() method
+    // UPDATE: the caller can't do anything with the expression created so far anyway. So I decided to errdefer destroy each expression.
 
-    // try expectError(ParserError.parse_error, act_result);
-    try expectError(ParserError.unknown_state, act_result);
-    // try expect(p.parse_errors.items.len == 1);
+    try expectError(ParserError.parse_error, act_result);
+    try expect(p.parse_errors.items.len == 1);
 }
 
 fn makeTestTokens() [9]Token {

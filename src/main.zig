@@ -54,14 +54,17 @@ fn run(allocator: Allocator, content: []const u8) !void {
     var sc = try scanner.Scanner.init(allocator, content);
     defer sc.deinit();
     const tokens = try sc.scanTokens();
-    for (tokens) |token| {
-        warn("token {s}", .{@tagName(token.tokenType)});
-    }
+    // for (tokens) |token| {
+    //     warn("token {s}", .{@tagName(token.tokenType)});
+    // }
     defer allocator.free(tokens);
     var p = parser.Parser.init(allocator, tokens);
     defer p.deinit();
     const e = try p.parse();
     defer e.deinit(allocator);
+    const s = try e.allocPrint(allocator);
+    defer allocator.free(s);
+    warn("parser: {s}", .{s});
 }
 
 fn reportError(line: usize, where: []const u8, message: []const u8) void {
@@ -76,14 +79,14 @@ test "run file" {
     defer tmp_dir.cleanup();
 
     var buffer: [std.fs.MAX_PATH_BYTES]u8 = undefined;
-    const path = try createTestFile(tmp_dir, "test.lox", "a program", buffer[0..]);
+    const path = try createTestFile(tmp_dir, "test.lox", "true == true", buffer[0..]);
     warn("test file {s}", .{path});
 
     try runFile(testing.allocator, path);
 }
 
 test "error" {
-    reportError(4, "bad token");
+    reportError(4,"", "bad token");
 }
 
 fn createTestFile(dir: testing.TmpDir, name: []const u8, content: []const u8, outPath: []u8) ![]u8 {
