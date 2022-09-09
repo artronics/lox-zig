@@ -60,6 +60,16 @@
                 "kind": "test",
                 "isDefault": true
             }
+        },
+        {
+            "label": "run interpreter tests",
+            "type": "shell",
+            "command": "zig test ${workspaceFolder}/src/interpreter.zig",
+            "problemMatcher": [],
+            "group": {
+                "kind": "test",
+                "isDefault": true
+            }
         }
     ]
 }
