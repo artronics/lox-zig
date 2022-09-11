@@ -1,6 +1,7 @@
 const std = @import("std");
 const Allocator = std.mem.Allocator;
 const scanner = @import("scanner.zig");
+const scanner2 = @import("scanner2.zig");
 const parser = @import("parser.zig");
 const expr = @import("expr.zig");
 const warn = std.log.warn;
@@ -54,6 +55,11 @@ fn run(allocator: Allocator, content: []const u8) !void {
     var sc = try scanner.Scanner.init(allocator, content);
     defer sc.deinit();
     const tokens = try sc.scanTokens();
+
+    var sc2 = try scanner2.Scanner.init(allocator, content);
+    defer sc2.deinit();
+    var tokens2 = try sc2.scanTokens();
+    defer tokens2.deinit();
     // for (tokens) |token| {
     //     warn("token {s}", .{@tagName(token.tokenType)});
     // }

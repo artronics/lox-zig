@@ -30,11 +30,38 @@
                 "kind": "test",
                 "isDefault": true
             }
+        },{
+            "label": "run string_builder tests",
+            "type": "shell",
+            "command": "zig test ${workspaceFolder}/src/string_builder.zig",
+            "problemMatcher": [],
+            "group": {
+                "kind": "test",
+                "isDefault": true
+            }
+        },{
+            "label": "run token tests",
+            "type": "shell",
+            "command": "zig test ${workspaceFolder}/src/token.zig",
+            "problemMatcher": [],
+            "group": {
+                "kind": "test",
+                "isDefault": true
+            }
         },
         {
             "label": "run scanner tests",
             "type": "shell",
             "command": "zig test ${workspaceFolder}/src/scanner.zig",
+            "problemMatcher": [],
+            "group": {
+                "kind": "test",
+                "isDefault": true
+            }
+        },{
+            "label": "run scanner2 tests",
+            "type": "shell",
+            "command": "zig test ${workspaceFolder}/src/scanner2.zig",
             "problemMatcher": [],
             "group": {
                 "kind": "test",
@@ -55,6 +82,15 @@
             "label": "run expr tests",
             "type": "shell",
             "command": "zig test ${workspaceFolder}/src/expr.zig",
+            "problemMatcher": [],
+            "group": {
+                "kind": "test",
+                "isDefault": true
+            }
+        },{
+            "label": "run expr2 tests",
+            "type": "shell",
+            "command": "zig test ${workspaceFolder}/src/expr2.zig",
             "problemMatcher": [],
             "group": {
                 "kind": "test",
