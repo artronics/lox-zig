@@ -2,7 +2,7 @@ const std = @import("std");
 const Allocator = std.mem.Allocator;
 const scanner = @import("scanner.zig");
 const warn = std.log.warn;
-const StringBuilderError = error{} || std.fmt.BufPrintError || Allocator.Error;
+const StringBuilderError = error{} || std.fmt.BufPrintError || std.fmt.AllocPrintError || Allocator.Error;
 
 pub const StringBuilder = struct {
     allocator: Allocator,
@@ -24,12 +24,20 @@ pub const StringBuilder = struct {
         return self.buffer[0..self.index];
     }
 
+    /// Deprecated
     pub fn append(self: *Self, str: []const u8) StringBuilderError!void {
         if (self.buffer.len - self.index < str.len) {
             self.buffer = try self.allocator.realloc(self.buffer, 2 * self.buffer.len);
         }
         const s = try std.fmt.bufPrint(self.buffer[self.index..], "{s}", .{str});
         self.index += s.len;
+    }
+    
+    // TODO: replace append with this one
+    pub fn append2(self: *Self, comptime fmt: []const u8, args: anytype) StringBuilderError!void {
+        const str = try std.fmt.allocPrint(self.allocator, fmt, args);
+        defer self.allocator.free(str);
+        try self.append(str);
     }
 };
 

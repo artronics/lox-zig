@@ -6,6 +6,7 @@ const StringHashMap = std.StringHashMap;
 const warn = std.log.warn;
 const expect = std.testing.expect;
 const expectError = std.testing.expectError;
+const StringBuilder = @import("string_builder.zig").StringBuilder;
 
 pub const Token = struct {
     lexeme: []const u8,
@@ -20,15 +21,21 @@ pub const Token = struct {
     pub fn print(self: Token, buf: []u8) ![]const u8 {
         return std.fmt.bufPrint(buf, "{s}:{s}%", .{ @tagName(self.tag), self.lexeme });
     }
+
+    pub fn allocPrint(self: Token, allocator: Allocator) ![]const u8 {
+        return std.fmt.allocPrint(allocator, "{s}:{s}%", .{ @tagName(self.tag), self.lexeme });
+    }
 };
 
 pub const Literal = union(enum) {
     l_identifier: []const u8,
     l_string: []const u8,
     l_number: f64,
+    // TODO: bool is not used as literal since token covers the value (like keywords). Should we add it for consistency?
     l_bool: bool,
 
     // TODO: it doesn't check the slice original (ptr). The behaviour is inconsistent with the Token.eql
+    // This means two literals can be equal even coming from different sources.
     pub fn eql(self: Literal, other: Literal) bool {
         if (@enumToInt(self) != @enumToInt(other)) return false;
         return switch (self) {
@@ -36,6 +43,15 @@ pub const Literal = union(enum) {
             .l_string => |v| std.mem.eql(u8, v, other.l_string),
             .l_number => |v| v == other.l_number,
             .l_bool => |v| v == other.l_bool,
+        };
+    }
+
+    pub fn allocPrint(self: Literal, allocator: Allocator) ![]const u8 {
+        return switch (self) {
+            .l_identifier => |v| try std.fmt.allocPrint(allocator, "identifier:{s}%", .{v}),
+            .l_string => |v| try std.fmt.allocPrint(allocator, "string:{s}%", .{v}),
+            .l_number => |v| try std.fmt.allocPrint(allocator, "number:{d}%", .{v}),
+            .l_bool => |v| try std.fmt.allocPrint(allocator, "bool:{any}%", .{v}),
         };
     }
 };
@@ -131,6 +147,31 @@ pub const Tokens = struct {
         }
 
         return Tokens.Pos{ .line = line, .column = col };
+    }
+
+    pub fn printAll(self: Self, allocator: Allocator) ![]const u8 {
+        const SB = @import("string_builder.zig").StringBuilder;
+        var sb = try SB.init(2000, allocator);
+        defer sb.deinit();
+
+        try sb.append2("tokens and literals:\n", .{});
+        for (self.tokens.items) |t, i| {
+            const ts = try t.allocPrint(allocator);
+            defer allocator.free(ts);
+            try sb.append2("{d}: {s}\n", .{ i, ts });
+
+            if (self.literals.get(i)) |lit| {
+                const ls = try lit.allocPrint(allocator);
+                defer allocator.free(ls);
+                try sb.append2("|--literal {s}\n", .{ls});
+            }
+        }
+
+        const str = sb.string();
+        const dst = try allocator.alloc(u8, str.len);
+        std.mem.copy(u8, dst, str);
+
+        return dst;
     }
 };
 
