@@ -122,6 +122,13 @@ pub const Tokens = struct {
         self.literals.deinit();
     }
 
+    pub fn literal(self: *const Self, token: ?u32) ?Literal {
+        if (token) |t| {
+            return self.literals.get(t);
+        }
+        return null;
+    }
+
     pub fn pos(self: Self, lexeme: []const u8) Tokens.Pos {
         const src_offset = @ptrToInt(self.source.ptr);
         const lex_offset = @ptrToInt(lexeme.ptr);
@@ -204,5 +211,30 @@ test "Tokens" {
         const pos = tokens.pos(lexeme);
         try expect(pos.line == 1);
         try expect(pos.column == 6);
+    }
+    { // literal
+        var ts = ArrayList(Token).init(a);
+        var ls = HashMap(usize, Literal).init(a);
+        const source = "3.4 bar \"foo\"";
+        const num = source[0 .. 3];
+        const id = source[4..7];
+        const str = source[9..12];
+        const l_num = Literal{.l_number = 3.4};
+        const l_id = Literal{.l_identifier = "bar"};
+        const l_str = Literal{.l_string = "foo"};
+
+        try ts.append(Token{ .lexeme = num, .tag = Tag.t_lit_number });
+        try ts.append(Token{ .lexeme = id, .tag = Tag.t_lit_identifier });
+        try ts.append(Token{ .lexeme = str, .tag = Tag.t_lit_string });
+        try ls.put(0, l_num);
+        try ls.put(1, l_id);
+        try ls.put(2, l_str);
+
+        var tokens = Tokens{ .source = source, .tokens = ts, .literals = ls };
+        defer tokens.deinit();
+
+        try expect(tokens.literal(0).?.eql(l_num));
+        try expect(tokens.literal(1).?.eql(l_id));
+        try expect(tokens.literal(2).?.eql(l_str));
     }
 }

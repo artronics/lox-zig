@@ -2,7 +2,7 @@ const std = @import("std");
 const Allocator = std.mem.Allocator;
 const scanner = @import("scanner.zig");
 const warn = std.log.warn;
-const StringBuilderError = error{} || std.fmt.BufPrintError || std.fmt.AllocPrintError || Allocator.Error;
+pub const StringBuilderError = error{} || std.fmt.BufPrintError || std.fmt.AllocPrintError || Allocator.Error;
 
 pub const StringBuilder = struct {
     allocator: Allocator,
@@ -22,6 +22,14 @@ pub const StringBuilder = struct {
 
     pub fn string(self: Self) []const u8 {
         return self.buffer[0..self.index];
+    }
+
+    pub fn toOwnedSlice(self: Self) ![]const u8 {
+        const str = self.string();
+        const dst = try self.allocator.alloc(u8, str.len);
+        std.mem.copy(u8, dst, str);
+
+        return dst;
     }
 
     /// Deprecated
