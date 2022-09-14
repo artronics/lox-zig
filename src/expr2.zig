@@ -94,23 +94,47 @@ pub const Expr = struct {
         defer sb.deinit();
 
         try self.printZ(&sb, &tokens);
-        const s = try sb.toOwnedSlice();
 
-        return s;
+        return sb.toOwnedSlice();
+    }
+
+    pub fn eql(self: *const Self, other: *const Expr, tokens: *const token.Tokens) bool {
+        if (self.tag != other.tag) return false;
+
+        if (self.token != null and other.token != null) {
+            if (self.token.? != other.token.?) return false;
+        } 
+        if (self.token == null and other.token != null) return false;
+        if (self.token != null and other.token == null) return false;
+
+        if (self.nodes != null and other.nodes != null) {
+            if (self.nodes.?.len != other.nodes.?.len) return false;
+            for (self.nodes.?) |n, i| {
+                const other_n = &other.nodes.?[i];
+                if (!n.eql(other_n, tokens)) return false;
+            }
+        }
+        if (self.nodes != null and other.nodes == null) return false;
+        if (self.nodes == null and other.nodes != null) return false;
+
+        return true;
     }
 };
-
-pub fn eql(a: Expr, b: Expr, tokens: token.Tokens) bool {
-    _ = a;
-    _ = b;
-    _ = tokens;
-    return false;
-}
 
 const expect = std.testing.expect;
 const scanner = @import("scanner2.zig");
 
-test "Expr equality" {}
+test "Expr equality" {
+    const a = std.testing.allocator;
+
+    var tokens: token.Tokens = undefined;
+    var expr: Expr = undefined;
+    try makeTestExpr(a, &expr, &tokens);
+    defer tokens.deinit();
+    defer expr.deinit(a);
+
+    try expect(expr.eql(&expr, &tokens));
+}
 
 test "expr" {
     const a = std.testing.allocator;
@@ -123,10 +147,10 @@ test "expr" {
 
     const str = try tokens.printAll(a);
     defer a.free(str);
-    warn("{s}", .{str});
+    // warn("{s}", .{str});
     const e_str = try expr.print(a, tokens);
     defer a.free(e_str);
-    warn("{s}", .{e_str});
+    // warn("{s}", .{e_str});
 }
 
 fn makeTestExpr(a: Allocator, e: *Expr, t: *token.Tokens) !void {
@@ -138,15 +162,6 @@ fn makeTestExpr(a: Allocator, e: *Expr, t: *token.Tokens) !void {
     var tokens = try sc.scanTokens();
     t.* = tokens;
 
-    const ts = [6]Token{
-        Token{ .tag = token.Tag.t_bang, .lexeme = source[0..1] },
-        Token{ .tag = token.Tag.t_true, .lexeme = source[1..5] },
-        Token{ .tag = token.Tag.t_star, .lexeme = source[6..7] },
-        Token{ .tag = token.Tag.t_lit_string, .lexeme = source[9..12] },
-        Token{ .tag = token.Tag.t_plus, .lexeme = source[14..15] },
-        Token{ .tag = token.Tag.t_lit_number, .lexeme = source[16..19] },
-    };
-    _ = ts;
     const l_num = Expr{ .tag = Tag.literal_number, .token = 5, .nodes = null };
     const l_true = Expr{ .tag = Tag.literal_true, .token = 1, .nodes = null };
     const l_str = Expr{ .tag = Tag.literal_string, .token = 3, .nodes = null };
