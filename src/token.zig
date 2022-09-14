@@ -113,6 +113,7 @@ pub const Tokens = struct {
     };
     // allocator: Allocator,
     source: []const u8,
+    // TODO: probably better to use slice here.
     tokens: ArrayList(Token),
     literals: HashMap(usize, Literal),
 

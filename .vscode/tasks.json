@@ -77,6 +77,15 @@
                 "kind": "test",
                 "isDefault": true
             }
+        },{
+            "label": "run parser2 tests",
+            "type": "shell",
+            "command": "zig test ${workspaceFolder}/src/parser2.zig",
+            "problemMatcher": [],
+            "group": {
+                "kind": "test",
+                "isDefault": true
+            }
         },
         {
             "label": "run expr tests",

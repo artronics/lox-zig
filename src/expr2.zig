@@ -89,7 +89,7 @@ pub const Expr = struct {
         }
     }
 
-    fn print(self: Self, allocator: Allocator, tokens: token.Tokens) StringBuilderError![]const u8 {
+    pub fn print(self: Self, allocator: Allocator, tokens: token.Tokens) StringBuilderError![]const u8 {
         var sb = try StringBuilder.init(2000, allocator);
         defer sb.deinit();
 
@@ -134,23 +134,6 @@ test "Expr equality" {
     defer expr.deinit(a);
 
     try expect(expr.eql(&expr, &tokens));
-}
-
-test "expr" {
-    const a = std.testing.allocator;
-
-    var tokens: token.Tokens = undefined;
-    var expr: Expr = undefined;
-    try makeTestExpr(a, &expr, &tokens);
-    defer tokens.deinit();
-    defer expr.deinit(a);
-
-    const str = try tokens.printAll(a);
-    defer a.free(str);
-    // warn("{s}", .{str});
-    const e_str = try expr.print(a, tokens);
-    defer a.free(e_str);
-    // warn("{s}", .{e_str});
 }
 
 fn makeTestExpr(a: Allocator, e: *Expr, t: *token.Tokens) !void {
