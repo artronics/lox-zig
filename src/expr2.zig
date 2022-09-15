@@ -39,12 +39,13 @@ pub const Expr = struct {
     token: ?u32,
     nodes: ?[]Expr,
 
-    pub fn deinit(e: Self, allocator: Allocator) void {
-        if (e.nodes) |ns| {
-            for (ns) |n| {
-                deinit(n, allocator);
+    pub fn deinit(self: *Self, allocator: Allocator) void {
+        if (self.nodes) |ns| {
+            for (ns) |*n| {
+                n.deinit(allocator);
             }
-            allocator.free(e.nodes.?);
+            allocator.free(self.nodes.?);
+            self.nodes = null;
         }
     }
 
