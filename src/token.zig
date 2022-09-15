@@ -79,6 +79,7 @@ pub const Tag = enum {
     t_less,
     t_less_equal,
     // Literals.
+    // TODO: remove _lit
     t_lit_identifier,
     t_lit_string,
     t_lit_number,
